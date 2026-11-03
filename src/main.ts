@@ -10,9 +10,9 @@ type Entry = {
 }
 
 const sections: Section[] = [
-  'Objectives',
-  'Meeting follow up',
   'Tickets',
+  'Meeting follow up',
+  'Objectives',
 ]
 
 const labels: Record<Section, string> = {
@@ -24,12 +24,13 @@ const labels: Record<Section, string> = {
 const normalize = (value: string) =>
   value.trim().toLowerCase().replace(/\s+/g, ' ')
 
-let active: Section = 'Objectives'
+let active: Section = 'Tickets'
 let selectedDates: Set<string> | null = null
 let selectedTopicStates: Set<string> | null = null
 let selectedTicketTypes: Set<string> | null = null
 let selectedTicketStatuses: Set<string> | null = null
 let searchText = ''
+const expandedMeetingDates = new Set<string>()
 
 let records: Record<Section, Entry[]> = {
   Objectives: [],
@@ -519,7 +520,7 @@ function render() {
 
     // Start with the most recent date. Preserve subsequent selections.
     if (selectedDates === null) {
-      selectedDates = new Set(dates.slice(0, 1))
+      selectedDates = new Set(dates)
     }
 
     if (selectedTopicStates === null) {
@@ -676,11 +677,43 @@ function render() {
       }
 
       for (const date of [...groups.keys()].sort().reverse()) {
-        list.append(element('h2', formatDate(date), 'date-heading'))
+        const topics = groups.get(date)!
+        const group = document.createElement('details')
+        group.className = 'meeting-group'
+        group.open = expandedMeetingDates.has(date)
 
-        for (const entry of groups.get(date)!) {
-          list.append(renderCard(entry))
+        const summary = document.createElement('summary')
+        const heading = element('div', '', 'meeting-group-heading')
+
+        heading.append(
+          element('h2', formatDate(date)),
+          element(
+            'span',
+            `${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}`,
+            'meeting-topic-count',
+          ),
+        )
+
+        const arrow = element('span', '⌄', 'meeting-group-arrow')
+        arrow.setAttribute('aria-hidden', 'true')
+        summary.append(heading, arrow)
+
+        const body = element('div', '', 'meeting-group-body')
+
+        for (const entry of topics) {
+          body.append(renderCard(entry))
         }
+
+        group.addEventListener('toggle', () => {
+          // Ignore toggle events from groups replaced by a filter update.
+          if (!group.isConnected) return
+
+          if (group.open) expandedMeetingDates.add(date)
+          else expandedMeetingDates.delete(date)
+        })
+
+        group.append(summary, body)
+        list.append(group)
       }
     } else {
       for (const entry of visible) {
@@ -799,6 +832,13 @@ input.addEventListener('change', async () => {
     }
 
     records = next
+    expandedMeetingDates.clear()
+
+    selectedDates = null
+    selectedTopicStates = null
+    selectedTicketTypes = null
+    selectedTicketStatuses = null
+    searchText = ''
     selectedDates = null
     selectedTopicStates = null
     selectedTicketTypes = null

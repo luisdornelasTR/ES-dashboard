@@ -1257,3 +1257,68 @@ select,
     min-width: 180px;
   }
 }
+
+.meeting-group {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.meeting-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-radius: 8px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.meeting-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.meeting-group > summary:hover {
+  background: var(--surface-hover);
+}
+
+.meeting-group-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.meeting-group-heading h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.meeting-topic-count {
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.meeting-group-arrow {
+  color: var(--muted);
+  font-size: 23px;
+  transition: transform 160ms ease;
+}
+
+.meeting-group[open] > summary .meeting-group-arrow {
+  transform: rotate(180deg);
+}
+
+.meeting-group-body {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
