@@ -1,5 +1,6 @@
 import './style.css'
 import * as XLSX from 'xlsx'
+import trLogo from './assets/tr-logo.png'
 
 type Section = 'Objectives' | 'Meeting follow up' | 'Tickets'
 
@@ -42,17 +43,28 @@ document.documentElement.lang = 'en'
 document.title = 'ES Dashboard'
 
 app.innerHTML = `
-  <header>
-    <div>
-      <span class="eyebrow">EMBEDDED SPECIALIST</span>
-      <h1>Customer workspace</h1>
-      <p>Objectives, conversations and tickets in one place.</p>
+  <header class="workspace-header">
+    <div class="brand">
+      <img class="brand-logo" src="${trLogo}" alt="testRigor" />
+      <div class="brand-copy">
+        <span class="eyebrow">EMBEDDED SPECIALIST PROGRAM</span>
+        <span class="brand-description">CSM Dashboard</span>
+      </div>
     </div>
+
     <label class="upload">
-      Import XLSX
+      <span class="upload-icon" aria-hidden="true">↑</span>
+      Import spreadsheet
       <input id="file" type="file" accept=".xlsx" />
     </label>
   </header>
+
+  <section class="workspace-intro" aria-labelledby="workspace-title">
+    <span class="section-label">CUSTOMER FOLLOW-UP</span>
+    <h1 id="workspace-title">Engagement overview</h1>
+    <p>Objectives, meeting discussions and technical follow-up.</p>
+    <div class="title-rule" aria-hidden="true"></div>
+  </section>
 
   <p id="message" role="status">
     Import an individual customer tracking spreadsheet.
@@ -82,14 +94,6 @@ function getField(entry: Entry, name: string): string {
   return Object.entries(entry.fields).find(
     ([key]) => normalize(key).startsWith(normalize(name)),
   )?.[1] || ''
-}
-
-function setField(entry: Entry, name: string, value: string) {
-  const key = Object.keys(entry.fields).find(
-    key => normalize(key).startsWith(normalize(name)),
-  ) || name
-
-  entry.fields[key] = value
 }
 
 function titleOf(entry: Entry): string {
@@ -454,9 +458,6 @@ function renderCard(entry: Entry): HTMLDetailsElement {
     addField(body, label, value)
   }
 
-  if (active === 'Tickets') {
-    body.append(createStatusSlider(entry))
-  }
 
   body.append(
     element('small', `${active} · source row ${entry.sourceRow}`, 'source'),
@@ -466,90 +467,7 @@ function renderCard(entry: Entry): HTMLDetailsElement {
   return details
 }
 
-function createStatusSlider(entry: Entry): HTMLElement {
-  const wrapper = element('div', '', 'status-editor')
-  const current = getField(entry, 'Status') || 'Not specified'
 
-  // These are selectable labels, not a progress calculation.
-  const statuses = [
-    'Not started',
-    'Prioritized',
-    'In progress',
-    'In review',
-    'Done',
-    'Rejected',
-  ]
-
-  let index = statuses.findIndex(
-    status => normalize(status) === normalize(current),
-  )
-
-  // Preserve any status imported from the spreadsheet.
-  if (index < 0) {
-    statuses.push(current)
-    index = statuses.length - 1
-  }
-
-  const label = document.createElement('label')
-  label.htmlFor = `status-${entry.sourceRow}`
-  label.textContent = 'Change ticket status'
-
-  const output = document.createElement('output')
-  output.textContent = statuses[index]!
-  output.className = 'status-value'
-
-  const slider = document.createElement('input')
-  slider.id = label.htmlFor
-  slider.type = 'range'
-  slider.min = '0'
-  slider.max = String(statuses.length - 1)
-  slider.step = '1'
-  slider.value = String(index)
-  slider.setAttribute('aria-valuetext', statuses[index]!)
-
-  slider.oninput = () => {
-    const next = statuses[Number(slider.value)]!
-    output.textContent = next
-    slider.setAttribute('aria-valuetext', next)
-  }
-
-  slider.onchange = () => {
-    const next = statuses[Number(slider.value)]!
-    setField(entry, 'Status', next)
-
-    // Keep the edited ticket visible after its status changes.
-    selectedTicketStatuses?.add(next)
-    render()
-
-    const updated = content.querySelector<HTMLDetailsElement>(
-      `details[data-row="${entry.sourceRow}"]`,
-    )
-
-    if (updated) {
-      updated.open = true
-      updated.scrollIntoView({ block: 'nearest' })
-      updated.querySelector<HTMLInputElement>('input[type="range"]')?.focus()
-    }
-
-    message.textContent =
-      `Ticket status changed to "${next}". ` +
-      'This change is stored only for the current session.'
-  }
-
-  wrapper.append(
-    label,
-    output,
-    slider,
-    element('p', statuses.join(' · '), 'slider-options'),
-    element(
-      'small',
-      'Changes do not update the spreadsheet or Jira.',
-      'editor-note',
-    ),
-  )
-
-  return wrapper
-}
 
 function render() {
   nav.replaceChildren()
@@ -714,7 +632,7 @@ function render() {
       visible.sort((a, b) => Number(isFinished(a)) - Number(isFinished(b)))
 
       panelHeading.append(
-        element('p', 'Open tickets first. Expand a ticket to change its status.'),
+        element('p', 'Open tickets first. Expand a ticket to view details.'),
       )
     }
 
