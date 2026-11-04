@@ -90,6 +90,8 @@ Import the individual customer spreadsheet, not the master tracking spreadsheet.
 - Filter by multiple ticket types and statuses.
 - Search ticket content.
 - Expand a ticket to view its details.
+- Click a ticket ID badge (for example, **TR-15364**) to open its associated Jira link in a new tab without expanding the ticket.
+- In an expanded ticket, use **Copy** next to the Jira or Freshdesk link to copy its full URL. The button confirms when the link has been copied.
 - Open tickets appear before completed, rejected, or closed tickets.
 
 Ticket statuses are read from the spreadsheet. *The dashboard does not edit tickets or update Jira.*

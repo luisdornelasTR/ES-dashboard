@@ -237,7 +237,46 @@ function formatDate(value: string): string {
   })
 }
 
-function addField(parent: HTMLElement, label: string, value: string) {
+function createCopyButton(value: string, label: string): HTMLButtonElement {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'copy-button'
+  button.setAttribute('aria-label', `Copy ${label}`)
+  const caption = element('span', 'Copy')
+  const feedback = element('span', '', 'visually-hidden')
+  feedback.setAttribute('role', 'status')
+  button.append(caption, feedback)
+  let resetTimer: number | undefined
+
+  button.onclick = async () => {
+    window.clearTimeout(resetTimer)
+    button.disabled = true
+    feedback.textContent = ''
+    delete button.dataset.state
+
+    try {
+      await navigator.clipboard.writeText(value)
+      caption.textContent = 'Copied!'
+      button.dataset.state = 'copied'
+      feedback.textContent = `${label} copied to clipboard.`
+    } catch {
+      caption.textContent = 'Copy failed'
+      button.dataset.state = 'error'
+      feedback.textContent = 'Unable to copy. Try again or select the link to copy it manually.'
+    } finally {
+      button.disabled = false
+      resetTimer = window.setTimeout(() => {
+        caption.textContent = 'Copy'
+        feedback.textContent = ''
+        delete button.dataset.state
+      }, 2500)
+    }
+  }
+
+  return button
+}
+
+function addField(parent: HTMLElement, label: string, value: string, copyable = false) {
   if (!value) return
 
   const field = element('div', '', 'field')
@@ -249,7 +288,13 @@ function addField(parent: HTMLElement, label: string, value: string) {
     link.textContent = value
     link.target = '_blank'
     link.rel = 'noopener noreferrer'
-    field.append(link)
+    if (copyable) {
+      const row = element('div', '', 'field-link-row')
+      row.append(link, createCopyButton(value, label))
+      field.append(row)
+    } else {
+      field.append(link)
+    }
   } else {
     field.append(element('p', value))
   }
@@ -491,7 +536,18 @@ function renderCard(entry: Entry): HTMLDetailsElement {
 
     const jira = getField(entry, 'Jira Link')
     const ticketId = jira.match(/\/browse\/([A-Z]+-\d+)/)?.[1]
-    if (ticketId) badges.append(badge(ticketId))
+    if (ticketId && /^https?:\/\/\S+$/i.test(jira)) {
+      const link = document.createElement('a')
+      link.className = 'badge neutral ticket-link'
+      link.href = jira
+      link.textContent = ticketId
+      link.target = '_blank'
+      link.rel = 'noopener noreferrer'
+      link.title = `Open ${ticketId} in Jira (new tab)`
+      badges.append(link)
+    } else if (ticketId) {
+      badges.append(badge(ticketId))
+    }
   }
 
   heading.append(
@@ -515,7 +571,8 @@ function renderCard(entry: Entry): HTMLDetailsElement {
       continue
     }
 
-    addField(body, label, value)
+    addField(body, label, value,
+      active === 'Tickets' && /jira|freshdesk/i.test(label))
   }
 
 
