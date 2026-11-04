@@ -84,6 +84,8 @@ Import the individual customer spreadsheet, not the master tracking spreadsheet.
 
 ### Tickets
 
+- Click the total or a status count to filter tickets. The horizontal bar shows the share of each status and also supports filtering.
+- Only statuses present in the imported spreadsheet appear in the overview.
 - View descriptions, status, priority, links, notes, and updates.
 - Filter by multiple ticket types and statuses.
 - Search ticket content.
@@ -94,6 +96,9 @@ Ticket statuses are read from the spreadsheet. *The dashboard does not edit tick
 
 ### Meetings
 
+- See discussed, resolved, pending, and unrecorded topic counts across all meetings and for each date.
+- Use the pending count at the top to open all pending topics, or a meeting's pending shortcut to focus on that date.
+- Each meeting shows its resolution percentage, including while collapsed.
 - All meeting dates are selected by default.
 - Use the date dropdown to select or deselect multiple dates.
 - Expand a date to view its topics, then expand a topic for details.
@@ -115,6 +120,8 @@ Dropdown filters support:
 - Searching within the available options.
 
 Clearing a filter selects nothing, so no matching records will appear until options are selected again.
+
+Overview counts always describe all imported records. The result count shows how many match the current filters and search. Clicking an overview count or pending shortcut clears previous filters and search so the results match the selected count; the dropdowns update to reflect the selection.
 
 ## Spreadsheet format
 

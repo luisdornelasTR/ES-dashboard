@@ -155,6 +155,65 @@ function badge(text: string, tone = 'neutral'): HTMLElement {
   return element('span', text, `badge ${tone}`)
 }
 
+function metric(
+  label: string,
+  count: number,
+  hint: string,
+  onClick: () => void,
+  selected: boolean,
+  color = '#b1d1f8',
+): HTMLButtonElement {
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.className = 'metric-card'
+  button.style.setProperty('--metric-color', color)
+  button.setAttribute('aria-pressed', String(selected))
+  button.append(
+    element('span', label, 'metric-label'),
+    element('strong', String(count), 'metric-value'),
+    element('span', hint, 'metric-hint'),
+  )
+  button.onclick = onClick
+  return button
+}
+
+function topicCounts(entries: Entry[]) {
+  return {
+    total: entries.length,
+    resolved: entries.filter(entry => topicState(entry) === 'resolved').length,
+    pending: entries.filter(entry => topicState(entry) === 'pending').length,
+    unknown: entries.filter(entry => topicState(entry) === 'unknown').length,
+  }
+}
+
+function distribution(
+  parts: { label: string; count: number; color: string; onClick?: () => void }[],
+  label: string,
+): HTMLElement {
+  const bar = element('div', '', 'distribution-bar')
+  bar.setAttribute('role', 'group')
+  bar.setAttribute('aria-label', label)
+  const total = parts.reduce((sum, part) => sum + part.count, 0)
+
+  for (const part of parts.filter(part => part.count > 0)) {
+    const text = `${part.label}: ${part.count} (${(part.count / total * 100).toFixed(1)}%)`
+    const segment = part.onClick
+      ? document.createElement('button')
+      : element('span')
+    segment.className = 'distribution-segment'
+    segment.style.flexGrow = String(part.count)
+    segment.style.background = part.color
+    segment.title = text
+    segment.setAttribute('aria-label', text)
+    if (segment instanceof HTMLButtonElement) {
+      segment.type = 'button'
+      segment.onclick = part.onClick!
+    }
+    bar.append(segment)
+  }
+  return bar
+}
+
 function meetingDate(entry: Entry): string {
   return getField(entry, 'Meeting Date')
 }
@@ -499,6 +558,7 @@ function render() {
   }
 
   const toolbar = element('div', '', 'toolbar')
+  const overview = element('section', '', 'section-overview')
   const panel = element('section', '', 'data-panel')
   const panelHeading = element('div', '', 'panel-heading')
   const list = element(
@@ -600,11 +660,112 @@ function render() {
 
   toolbar.append(search)
   panel.append(panelHeading, list)
-  content.append(toolbar, panel)
+  content.append(overview, toolbar, panel)
+
+  // Overview shortcuts start a fresh view so their counts match the results.
+  function showTickets(status?: string) {
+    selectedTicketTypes = null
+    selectedTicketStatuses = status === undefined ? null : new Set([status])
+    searchText = ''
+    render()
+    content.querySelector<HTMLElement>('.panel-heading')?.focus()
+  }
+
+  function showTopics(state?: string, date?: string) {
+    selectedDates = date === undefined ? null : new Set([date])
+    selectedTopicStates = state === undefined ? null : new Set([state])
+    searchText = ''
+    if (state !== undefined) {
+      for (const entry of entries) {
+        if (topicState(entry) === state &&
+          (date === undefined || meetingDate(entry) === date)) {
+          expandedMeetingDates.add(meetingDate(entry))
+        }
+      }
+    }
+    render()
+    content.querySelector<HTMLElement>('.panel-heading')?.focus()
+  }
+
+  function drawOverview() {
+    overview.replaceChildren()
+    overview.hidden = active === 'Objectives'
+    if (active === 'Objectives') return
+    const grid = element('div', '', 'metrics-grid')
+    const allSelected = (selected: Set<string> | null, values: string[]) =>
+      values.every(value => selected?.has(value))
+
+    if (active === 'Tickets') {
+      overview.setAttribute('aria-label', 'Ticket overview')
+      overview.append(element('h2', 'Ticket overview', 'overview-title'),
+        element('p', 'All imported tickets. Select a number or a bar segment to explore a status.', 'overview-note'))
+      const statuses = [...new Set(entries.map(entry => getField(entry, 'Status')))].sort()
+      const types = [...new Set(entries.map(entry => getField(entry, 'Type')))]
+      const unfiltered = !searchText && allSelected(selectedTicketTypes, types)
+      const palettes: Record<string, string[]> = {
+        success: ['#6fbd9d', '#99d8b0', '#57b9bb', '#b2ce80'],
+        warning: ['#d8b166', '#e3c68a', '#dca67d', '#ecd7aa'],
+        critical: ['#e67c7c', '#e49ead', '#cd91c2', '#f0ad91'],
+        neutral: ['#82aad6', '#bb9ee8', '#69c5ce', '#aba6db'],
+      }
+      const usedColors: Record<string, number> = {}
+      const parts = statuses.map(status => {
+        const tone = statusTone(status)
+        const palette = palettes[tone]!
+        const index = usedColors[tone] || 0
+        if (status) usedColors[tone] = index + 1
+        return {
+          label: status || 'No status',
+          count: entries.filter(entry => getField(entry, 'Status') === status).length,
+          color: status ? palette[index % palette.length]! : '#a6a6a6',
+          onClick: () => showTickets(status),
+        }
+      })
+      grid.append(metric('Total tickets', entries.length, 'View all tickets',
+        () => showTickets(), unfiltered && allSelected(selectedTicketStatuses, statuses)))
+      parts.forEach((part, index) => {
+        grid.append(metric(part.label, part.count,
+          `${Math.round(part.count / entries.length * 100)}% of all tickets · View tickets`,
+          part.onClick, unfiltered && selectedTicketStatuses?.size === 1 &&
+            selectedTicketStatuses.has(statuses[index]!), part.color))
+      })
+      overview.append(grid, distribution(parts, 'Tickets by status. Select a segment to filter.'))
+    } else {
+      overview.setAttribute('aria-label', 'Meeting overview')
+      const counts = topicCounts(entries)
+      const dates = [...new Set(entries.map(meetingDate))]
+      const allDates = !searchText && allSelected(selectedDates, dates)
+      overview.append(element('h2', 'Meeting overview', 'overview-title'),
+        element('p', `Across all ${dates.length} meetings. Select a number to explore the topics.`, 'overview-note'))
+      grid.append(
+        metric('Topics discussed', counts.total, 'View all topics', () => showTopics(),
+          allDates && allSelected(selectedTopicStates, ['resolved', 'pending', 'unknown'])),
+        metric('Resolved', counts.resolved,
+          `${Math.round(counts.resolved / counts.total * 100)}% of all topics`,
+          () => showTopics('resolved'), allDates && selectedTopicStates?.size === 1 &&
+            selectedTopicStates.has('resolved'), '#6fbd9d'),
+        metric('Pending', counts.pending, 'Open pending topics →',
+          () => showTopics('pending'), allDates && selectedTopicStates?.size === 1 &&
+            selectedTopicStates.has('pending'), '#d8b166'),
+      )
+      if (counts.unknown) {
+        grid.append(metric('Status not recorded', counts.unknown, 'Review these topics',
+          () => showTopics('unknown'), allDates && selectedTopicStates?.size === 1 &&
+            selectedTopicStates.has('unknown'), '#a6a6a6'))
+      }
+      overview.append(grid, distribution([
+        { label: 'Resolved', count: counts.resolved, color: '#6fbd9d', onClick: () => showTopics('resolved') },
+        { label: 'Pending', count: counts.pending, color: '#d8b166', onClick: () => showTopics('pending') },
+        { label: 'Status not recorded', count: counts.unknown, color: '#a6a6a6', onClick: () => showTopics('unknown') },
+      ], 'Meeting topics by resolution status'))
+    }
+  }
 
   function drawList() {
     list.replaceChildren()
     panelHeading.replaceChildren()
+    panelHeading.tabIndex = -1
+    drawOverview()
 
     let visible = [...entries]
 
@@ -655,6 +816,10 @@ function render() {
       })
     }
 
+    const resultCount = element('p', `${visible.length} of ${entries.length} ${active === 'Meeting follow up' ? 'topics' : active.toLowerCase()} shown`, 'result-count')
+    resultCount.setAttribute('role', 'status')
+    panelHeading.append(resultCount)
+
     if (!visible.length) {
       list.append(
         element(
@@ -678,6 +843,8 @@ function render() {
 
       for (const date of [...groups.keys()].sort().reverse()) {
         const topics = groups.get(date)!
+        const counts = topicCounts(entries.filter(entry => meetingDate(entry) === date))
+        const wrapper = element('section', '', 'meeting-card')
         const group = document.createElement('details')
         group.className = 'meeting-group'
         group.open = expandedMeetingDates.has(date)
@@ -689,10 +856,16 @@ function render() {
           element('h2', formatDate(date)),
           element(
             'span',
-            `${topics.length} ${topics.length === 1 ? 'topic' : 'topics'}`,
+            `${counts.total} discussed`,
             'meeting-topic-count',
           ),
         )
+        heading.append(badge(`${counts.resolved} resolved`, 'success'),
+          badge(`${counts.pending} pending`, 'warning'))
+        if (counts.unknown) heading.append(badge(`${counts.unknown} not recorded`))
+        if (topics.length !== counts.total) {
+          heading.append(element('span', `${topics.length} shown`, 'meeting-topic-count'))
+        }
 
         const arrow = element('span', '⌄', 'meeting-group-arrow')
         arrow.setAttribute('aria-hidden', 'true')
@@ -713,7 +886,19 @@ function render() {
         })
 
         group.append(summary, body)
-        list.append(group)
+        const footer = element('div', '', 'meeting-card-footer')
+        footer.append(element('span', `${Math.round(counts.resolved / counts.total * 100)}% resolved`, 'meeting-resolution'))
+        if (counts.pending) {
+          const pending = document.createElement('button')
+          pending.type = 'button'
+          pending.className = 'pending-shortcut'
+          pending.textContent = `View ${counts.pending} pending ${counts.pending === 1 ? 'topic' : 'topics'} →`
+          pending.setAttribute('aria-label', `View ${counts.pending} pending topics for ${formatDate(date)}`)
+          pending.onclick = () => showTopics('pending', date)
+          footer.append(pending)
+        }
+        wrapper.append(group, footer)
+        list.append(wrapper)
       }
     } else {
       for (const entry of visible) {
