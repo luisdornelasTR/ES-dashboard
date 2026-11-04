@@ -99,7 +99,8 @@ Ticket statuses are read from the spreadsheet. *The dashboard does not edit tick
 ### Meetings
 
 - See discussed, resolved, pending, and unrecorded topic counts across all meetings and for each date.
-- Use the pending count at the top to open all pending topics, or a meeting's pending shortcut to focus on that date.
+- Use the pending count at the top to filter all pending topics, or a meeting's pending shortcut to open pending topics for that date.
+- Selecting an overview count or status bar segment keeps all meetings collapsed. Open a meeting manually to view its filtered topics.
 - Each meeting shows its resolution percentage, including while collapsed.
 - All meeting dates are selected by default.
 - Use the date dropdown to select or deselect multiple dates.

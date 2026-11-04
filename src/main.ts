@@ -63,7 +63,7 @@ app.innerHTML = `
   <section class="workspace-intro" aria-labelledby="workspace-title">
     <span class="section-label">CUSTOMER FOLLOW-UP</span>
     <h1 id="workspace-title">Engagement overview</h1>
-    <p>Objectives, meeting discussions and technical follow-up.</p>
+    <p>Tickets, meeting discussions and project objectives.</p>
     <div class="title-rule" aria-hidden="true"></div>
   </section>
 
@@ -732,14 +732,8 @@ function render() {
     selectedDates = date === undefined ? null : new Set([date])
     selectedTopicStates = state === undefined ? null : new Set([state])
     searchText = ''
-    if (state !== undefined) {
-      for (const entry of entries) {
-        if (topicState(entry) === state &&
-          (date === undefined || meetingDate(entry) === date)) {
-          expandedMeetingDates.add(meetingDate(entry))
-        }
-      }
-    }
+    if (date === undefined) expandedMeetingDates.clear()
+    else expandedMeetingDates.add(date)
     render()
     content.querySelector<HTMLElement>('.panel-heading')?.focus()
   }
@@ -801,7 +795,7 @@ function render() {
           `${Math.round(counts.resolved / counts.total * 100)}% of all topics`,
           () => showTopics('resolved'), allDates && selectedTopicStates?.size === 1 &&
             selectedTopicStates.has('resolved'), '#6fbd9d'),
-        metric('Pending', counts.pending, 'Open pending topics →',
+        metric('Pending', counts.pending, 'View pending topics →',
           () => showTopics('pending'), allDates && selectedTopicStates?.size === 1 &&
             selectedTopicStates.has('pending'), '#d8b166'),
       )
